@@ -57,18 +57,21 @@ SUBSCRIPTION_TYPES = [
 # CONNECTION HELPERS
 # ======================================================================================
 
+TRUST_SERVER_CERT = os.environ.get("TRUST_SERVER_CERTIFICATE", "yes")
+
+
 def _make_sql_conn(db_name, user, password_env_name, password_value):
     if not password_value:
         raise RuntimeError(f"{password_env_name} environment variable is not set")
 
     conn_str = (
-        "DRIVER={ODBC Driver 17 for SQL Server};"
+        "DRIVER={ODBC Driver 18 for SQL Server};"
         f"SERVER=tcp:{SQL_SERVER_HOST},1433;"
         f"DATABASE={db_name};"
         f"UID={user};"
         f"PWD={password_value};"
         "Encrypt=yes;"
-        "TrustServerCertificate=no;"
+        f"TrustServerCertificate={TRUST_SERVER_CERT};"
         "Connection Timeout=30;"
     )
     return pyodbc.connect(conn_str)

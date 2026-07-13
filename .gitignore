@@ -1,0 +1,17 @@
+# Data files
+data/
+!data/.gitkeep
+
+# Environment / secrets
+*.env
+!*.env.example
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE / editor
+.claude/settings.local.json
