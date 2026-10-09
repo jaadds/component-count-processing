@@ -1,6 +1,7 @@
 # Data files
 data/
 !data/.gitkeep
+*.csv
 
 # Environment / secrets
 *.env
