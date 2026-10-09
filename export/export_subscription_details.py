@@ -126,52 +126,57 @@ def get_mongo_collection():
 
 def fetch_paid_subscriptions(conn):
     """
-    From subscriptionV2, fetch (org_id, subscription_type) for rows where:
+    From subscriptionV2 JOIN tierV2, fetch (org_id, subscription_type, tier_name)
+    for rows where:
       - is_paid = 1
       - subscription_type in SUBSCRIPTION_TYPES
     """
     placeholders = ",".join("?" for _ in SUBSCRIPTION_TYPES)
     sql = f"""
-        SELECT org_id, subscription_type
-        FROM subscriptionV2
-        WHERE is_paid = 1
-          AND subscription_type IN ({placeholders})
+        SELECT s.org_id, s.subscription_type, t.name AS tier_name
+        FROM subscriptionV2 s
+        JOIN tierV2 t ON s.tier_id = t.id
+        WHERE s.is_paid = 1
+          AND s.subscription_type IN ({placeholders})
     """
 
     cur = conn.cursor()
     cur.execute(sql, SUBSCRIPTION_TYPES)
     rows = cur.fetchall()
     cur.close()
-    return [(r.org_id, r.subscription_type) for r in rows]
+    return [(r.org_id, r.subscription_type, r.tier_name) for r in rows]
 
 
 def build_org_paid_flags(rows):
     """
-    rows: list of (org_id, subscription_type)
+    rows: list of (org_id, subscription_type, tier_name)
 
     Returns:
       org_uuid -> {
         "choreo-subscription-paid": 0/1,
+        "choreo-subscription-tier": str,
         "devant-subscription-paid": 0/1,
+        "devant-subscription-tier": str,
         "bijira-subscription-paid": 0/1,
+        "bijira-subscription-tier": str,
       }
     """
     orgs = {}
 
-    for org_id, subscription_type in rows:
+    for org_id, subscription_type, tier_name in rows:
         if org_id not in orgs:
             orgs[org_id] = {
                 "choreo-subscription-paid": 0,
+                "choreo-subscription-tier": "",
                 "devant-subscription-paid": 0,
+                "devant-subscription-tier": "",
                 "bijira-subscription-paid": 0,
+                "bijira-subscription-tier": "",
             }
 
-        if subscription_type == "choreo-subscription":
-            orgs[org_id]["choreo-subscription-paid"] = 1
-        elif subscription_type == "devant-subscription":
-            orgs[org_id]["devant-subscription-paid"] = 1
-        elif subscription_type == "bijira-subscription":
-            orgs[org_id]["bijira-subscription-paid"] = 1
+        if subscription_type in SUBSCRIPTION_TYPES:
+            orgs[org_id][f"{subscription_type}-paid"] = 1
+            orgs[org_id][f"{subscription_type}-tier"] = tier_name
 
     return orgs
 
@@ -454,8 +459,11 @@ def write_output_csv(org_summaries, appdb_conn, mongo_coll, cicd_conn):
         "handle",
         "origin_cloud",
         "choreo-subscription-paid",
+        "choreo-subscription-tier",
         "devant-subscription-paid",
+        "devant-subscription-tier",
         "bijira-subscription-paid",
+        "bijira-subscription-tier",
         "total_components",
         "metadata_null_count",
         "originCloud_null_count",
@@ -481,8 +489,11 @@ def write_output_csv(org_summaries, appdb_conn, mongo_coll, cicd_conn):
                 "handle": handle if handle is not None else "",
                 "origin_cloud": origin_cloud if origin_cloud is not None else "",
                 "choreo-subscription-paid": paid_flags["choreo-subscription-paid"],
+                "choreo-subscription-tier": paid_flags["choreo-subscription-tier"],
                 "devant-subscription-paid": paid_flags["devant-subscription-paid"],
+                "devant-subscription-tier": paid_flags["devant-subscription-tier"],
                 "bijira-subscription-paid": paid_flags["bijira-subscription-paid"],
+                "bijira-subscription-tier": paid_flags["bijira-subscription-tier"],
                 "total_components": comp_summary["total_components"],
                 "metadata_null_count": comp_summary["metadata_null_count"],
                 "originCloud_null_count": comp_summary["originCloud_null_count"],
