@@ -110,14 +110,30 @@ def safe_str(value):
     return str(value)
 
 
+BIJIRA_TIER_MAP = {
+    'Enterprise': 'Enterprise',
+    'Pay-As-You-Go': 'PAYG',
+    'Free Trial': 'Free',
+    '': 'Free',
+}
+
+
 def derive_subscription_type(row):
-    for col in ('choreo-subscription-tier', 'devant-subscription-tier', 'bijira-subscription-tier'):
-        tier = safe_str(row.get(col, '')).strip()
-        if tier == 'Enterprise':
-            return 'Enterprise'
-    for col in ('choreo-subscription-paid', 'devant-subscription-paid', 'bijira-subscription-paid'):
-        if safe_str(row.get(col, '')).strip() == '1':
-            return 'PAYG'
+    origin = safe_str(row.get('origin_cloud', '')).strip().lower()
+
+    if origin == 'bijira':
+        tier = safe_str(row.get('bijira-subscription-tier', '')).strip()
+        return BIJIRA_TIER_MAP.get(tier, 'Free')
+
+    sub_col = f'{origin}-subscription' if origin in ('choreo', 'devant') else 'choreo-subscription'
+    tier = safe_str(row.get(f'{sub_col}-tier', '')).strip()
+    if tier == 'Enterprise':
+        return 'Enterprise'
+    if tier and tier != 'Free Trial':
+        return 'PAYG'
+    paid = safe_str(row.get(f'{sub_col}-paid', '')).strip()
+    if paid == '1' and tier != 'Free Trial':
+        return 'PAYG'
     return 'Free'
 
 
